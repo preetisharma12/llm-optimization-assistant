@@ -1,6 +1,6 @@
 # LLM-Based Optimization Assistant
 
-> **Before publishing this repo:** this work was done at Fraunhofer IOSB-INA. Written confirmation from the supervisor/IP office that this can be public (code, write-up, and any images) has not yet been obtained. Until that confirmation is in hand, this repo intentionally contains no proprietary datasets, internal prompts, client-specific use cases, or proprietary business logic -- only a generic technical description of the approach, plus placeholders marked below for what will be filled in once cleared. A generic re-implementation (same architecture/approach, different -- own or synthetic -- example domain) is the safest path to a public portfolio piece.
+Before publishing this repo: this work was done at Fraunhofer IOSB-INA. Written confirmation from the supervisor/IP office that this can be public (code, write-up, and any images) has not yet been obtained. Until that confirmation is in hand, this repo intentionally contains no proprietary datasets, internal prompts, client-specific use cases, or proprietary business logic -- only a generic technical description of the approach, plus placeholders marked below for what will be filled in once cleared. A generic re-implementation (same architecture/approach, different -- own or synthetic -- example domain) is the safest path to a public portfolio piece.
 
 One-line description: A conversational assistant that converts natural-language problem descriptions into structured optimization models, built with FastAPI, React, and an LLM backend.
 
