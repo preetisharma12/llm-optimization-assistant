@@ -1,67 +1,156 @@
-# Optimization chat Assistant
+# LLM-Optimization-Assistant
 
-A conversational assistant that converts natural-language problem descriptions into structured optimization models, built with FastAPI, React, and an LLM backend.
+An AI-assisted chat interface that interviews a user about an optimization problem they want solved, then automatically turns that conversation into a structured optimization model and a plain-language description of it.
 
-## Project Overview
+> **IP / clearance note:** This project originated from work done at Fraunhofer IOSB-INA, and written clearance to publish has not yet been obtained. To be safe in the meantime, the confidential LLM connector (`llm.py`) — which in the original deployment contains Fraunhofer-specific model configuration and API credentials — has been **excluded** from this repository and replaced with a generic, credential-free implementation of the same interface. Everything else here (backend logic, frontend, prompts, architecture) is generic and does not depend on any Fraunhofer infrastructure, dataset, or branding.
 
-This project explores using an LLM as the front end to an optimization pipeline: instead of requiring users to formally specify an optimization problem, the assistant holds a conversation to incrementally extract the concepts, constraints, and parameters needed, then emits a structured (JSON) representation for a downstream optimization solver.
+## How it works
 
-## Key Features
+The assistant conducts a structured interview across five fixed concepts, one at a time:
 
-Natural-language-to-structured-optimization-model conversion. A conversational workflow that incrementally identifies concepts, validates input, and collects parameters. A REST API connecting a React frontend to an LLM-backed Python service. Structured JSON output designed for downstream optimization tooling.
+1. **Objective** — what should be maximized or minimized
+2. **Decision Variables** — what can actually be changed/chosen
+3. **Constraints** — hard limits that must hold
+4. **Fixed Parameters** — known, unchangeable inputs
+5. **Measurements** — how success/outcomes are judged
 
-## System Architecture
+Each concept must be explicitly confirmed by the user before the assistant moves to the next one — it won't skip ahead or infer confirmation. Replies are also passed through a jargon filter (prompt instructions plus a regex-based safety net) so the assistant explains things in plain language instead of technical/optimization jargon.
 
-```
-User (React frontend)
-        |  conversational input
-        v
- FastAPI backend
-        |  prompts / conversation state
-        v
- LLM (GPT)
-        |  extracted concepts & parameters
-        v
- Structured JSON output --> downstream optimization model/solver
-```
+Once all five concepts are confirmed, the backend automatically:
+1. Builds a structured optimization model (parameters, variables, objective, constraints) as JSON
+2. Generates a natural-language description of that model
+3. Saves both to `backend/outputs/`
+4. Locks the chat
 
+## Architecture
 
-## Technologies
+- **Backend:** FastAPI (Python). Uses [llama-index](https://www.llamaindex.ai/) as an abstraction layer over the underlying chat model, so the provider can be swapped without touching business logic. Conversation state is held in memory per session.
+- **Frontend:** React 19 + Vite + Tailwind CSS. A chat panel on the left; a live "Information Panel" on the right rendering an ASCII-style concept tree, a plain-language explanation, and progress indicators as the interview proceeds.
+- **LLM connector:** Abstracted behind a small `LLM(params).query(prompt)` class in `backend/llm.py`. Configuration (API key, base URL, model name) is read entirely from environment variables — see `backend/.env.example` — so any OpenAI-compatible model/provider can be used.
 
-Backend: Python, FastAPI. Frontend: React. LLM: GPT  Azure OpenAI  Communication: REST APIs.
+## Tech stack
 
+**Backend:** FastAPI, llama-index, openai, pydantic, uvicorn, python-dotenv
 
-## Methodology
+**Frontend:** React 19, Vite, Tailwind CSS 4, lucide-react
 
-Design a conversational flow to elicit optimization concepts from unstructured natural language, use an LLM (with prompting/validation logic) to extract and incrementally validate parameters, collect and structure the final output as JSON, then hand off the structured output to a downstream optimization step.
-
-
-
-
-
-
-## Project Structure
-
-Recommended structure for a FastAPI + React project like this:
+## Project structure
 
 ```
 llm-optimization-assistant/
-├── README.md
-├── LICENSE
-├── .gitignore
 ├── backend/
+│   ├── main.py              # FastAPI app, interview logic, endpoints
+│   ├── llm.py                # generic LLM connector (see IP note above)
 │   ├── requirements.txt
-│   ├── app/            # FastAPI routes, LLM integration, conversation logic
-│   ├── configs/
-│   └── tests/
-├── frontend/
-│   ├── package.json
-│   └── src/
-└── docs/                # architecture notes, example conversation transcripts
+│   ├── .env.example
+│   └── outputs/               # generated models/descriptions land here (gitignored)
+├── src/
+│   ├── App.jsx
+│   ├── components/
+│   │   ├── Header.jsx
+│   │   ├── ChatWindow.jsx
+│   │   ├── ChatMessage.jsx
+│   │   ├── MessageInput.jsx
+│   │   └── InformationPanel.jsx
+│   ├── data/
+│   ├── main.jsx
+│   └── index.css
+├── index.html
+├── package.json
+├── vite.config.js
+└── .gitignore
 ```
 
+## API endpoints
 
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/` | Health check |
+| GET | `/test` | Health check |
+| POST | `/chat` | Send a user message, get the assistant's next reply + updated information-panel state |
+| POST | `/new_chat` | Reset the conversation |
+| POST | `/build_model` | *(debug)* Manually trigger structured-model generation from the current conversation |
+| POST | `/generate_json` | *(debug)* Manually trigger the natural-language description step |
 
+## Getting started
 
-Preeti Sharma - Research Assistant, AI & Industrial Automation, Fraunhofer IOSB-INA, Lemgo, Germany.
+### Backend
 
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# then edit .env and set OPENAI_API_KEY (and OPENAI_API_BASE / LLM_MODEL if needed)
+
+uvicorn main:app --reload      # runs on http://127.0.0.1:8000
+```
+
+### Frontend
+
+```bash
+npm install
+npm run dev                    # runs on http://localhost:5173
+```
+
+The frontend expects the backend at `http://127.0.0.1:8000`; CORS is configured for `http://localhost:5173`.
+
+## Usage walkthrough
+
+1. Open the app — the assistant greets you with "Hello! What would you like to optimize?"
+2. Describe your problem in plain language, e.g. *"I want to optimize furniture production."*
+3. The assistant asks about each of the five concepts in turn (Objective first, then Decision Variables, and so on), confirming each with you before moving on.
+4. The Information Panel on the right fills in live: a concept tree, a running explanation, and progress.
+5. Once all five concepts are confirmed, the backend automatically builds a structured optimization model and a plain-language description, saves both under `backend/outputs/`, and locks the chat.
+
+## Example outputs
+
+These are real outputs the tool generated, using clearly generic example problems (not tied to any client work).
+
+**Structured model** (`optimization_model.json`, from a small staffing example):
+
+```json
+{
+    "objective": {
+        "name": "maximize_total_haircut_bookings_served",
+        "sense": "maximize",
+        "expression": "b"
+    },
+    "parameters": {
+        "B": { "value": 100000, "interpretation": "Total budget available for hiring new haircut-skilled staff and training existing nail staff." },
+        "H0": { "value": 4, "interpretation": "Initial number of staff already capable of serving haircut bookings." },
+        "N0": { "value": 10, "interpretation": "Maximum number of nail staff who can be trained to perform haircuts." },
+        "c_hire": { "value": 5000, "interpretation": "Hiring cost per additional haircut-skilled staff member." },
+        "c_train": { "value": 3000, "interpretation": "Training cost per nail staff member converted to haircut capability." },
+        "cap": { "value": 20, "interpretation": "Daily haircut service capacity contributed by each haircut-capable staff member." }
+    },
+    "variables": {
+        "x": { "type": "integer", "lower_bound": 0, "interpretation": "Number of new haircut-skilled staff hired." },
+        "y": { "type": "integer", "lower_bound": 0, "interpretation": "Number of nail staff trained to perform haircuts." },
+        "b": { "type": "integer", "lower_bound": 0, "interpretation": "Total number of haircut bookings served during the day." }
+    },
+    "constraints": [
+        { "name": "budget_limit", "expression": "5000*x + 3000*y <= 100000" },
+        { "name": "training_availability", "expression": "y <= 10" },
+        { "name": "booking_capacity", "expression": "b <= 20*(4 + x + y)" }
+    ]
+}
+```
+
+**Natural-language description** (from a 3D-printing settings example):
+
+> This problem is about finding the best way to run a 3D print so the finished part looks and performs as well as possible, while also taking less time to make and using less filament. In other words, we are trying to balance three things that usually pull against each other: better-looking, more reliable parts, shorter print jobs, and lower material use. [...] The settings we are allowed to tune are the layer height, print speed, nozzle temperature, bed temperature, infill density, and cooling behavior. [...] However we tune the process, the part must still be strong enough to meet the minimum level required for use, and it must stay close enough to the intended size and shape that it does not exceed the allowed dimensional error.
+
+## Limitations
+
+- The interview is fixed to exactly five concepts (Objective, Decision Variables, Constraints, Fixed Parameters, Measurements) — it isn't adaptive to problem shapes that don't fit that structure.
+- Conversation state lives in an in-memory dict on the backend; restarting the server clears any in-progress chat.
+- Jargon sanitization is regex/keyword-based, so it can miss rephrasings or synonyms not covered by the banned-word list.
+- No authentication or access control on the API as shipped — it's built for local/single-user use.
+- The debug endpoints (`/build_model`, `/generate_json`) aren't gated behind interview completion, so they can be called independently of conversation state.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
