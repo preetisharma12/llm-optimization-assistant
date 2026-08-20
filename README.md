@@ -2,8 +2,6 @@
 
 An AI-assisted chat interface that interviews a user about an optimization problem they want solved, then automatically turns that conversation into a structured optimization model and a plain-language description of it.
 
-> **IP / clearance note:** This project originated from work done at Fraunhofer IOSB-INA, and written clearance to publish has not yet been obtained. To be safe in the meantime, the confidential LLM connector (`llm.py`) — which in the original deployment contains Fraunhofer-specific model configuration and API credentials — has been **excluded** from this repository and replaced with a generic, credential-free implementation of the same interface. Everything else here (backend logic, frontend, prompts, architecture) is generic and does not depend on any Fraunhofer infrastructure, dataset, or branding.
-
 ## How it works
 
 The assistant conducts a structured interview across five fixed concepts, one at a time:
